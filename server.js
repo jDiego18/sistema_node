@@ -10,8 +10,8 @@ app.use(cors({ origin: 'http://localhost:3000' }));
 const db = mysql.createConnection({
     host: 'localhost',
     user: 'root',
-    password: '16401802',
-    database: 'prueba'
+    password: '12345',
+    database: 'sistemaautomatas'
 });
 
 db.connect(err => {
@@ -28,8 +28,8 @@ app.listen(PORT, () => {
     console.log(`Servidor corriendo http://localhost:${PORT}`);
 });
 
-app.get('/pacientes', (req, res) => {
-    const query = 'SELECT * FROM paciente';
+app.get('/usuarios', (req, res) => {
+    const query = 'SELECT * FROM usuarios';
     db.query(query, (err, results) => {
         if (err) throw err;
         res.json(results);

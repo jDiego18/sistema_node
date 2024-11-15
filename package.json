@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "description": "Proyecto escolar con node.js",
   "main": "index.js",
+  "type": "module",
   "scripts": {
-    "start": "node server.js",
+    "start": "nodemon src/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -26,6 +27,10 @@
     "ejs": "^3.1.10",
     "express": "^4.19.2",
     "express-session": "^1.18.0",
+    "morgan": "^1.10.0",
     "mysql2": "^3.11.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.7"
   }
 }
