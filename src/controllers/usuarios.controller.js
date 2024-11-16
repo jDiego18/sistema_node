@@ -8,7 +8,25 @@ export const getAll = (req, res) => {
     });
 }
 
-export const getById = (req, res) => { }
+export const getById = (req, res) => {
+    const { id } = req.params; // Asegúrate de que el nombre del parámetro coincida con la ruta
+
+    const query = 'SELECT * FROM usuarios WHERE usuarios_id = ?';
+    const values = [id];
+
+    db.query(query, values, (err, results) => {
+        if (err) {
+            console.error('Error ejecutando la consulta:', err);
+            return res.status(500).json({ success: false, message: 'Error en el servidor' });
+        }
+
+        if (results.length > 0) {
+            res.status(200).json(results[0]);
+        } else {
+            res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+        }
+    });
+}
 
 export const create = (req, res) => {
     const { nombre, apaterno, amaterno, clave, telefono, correo } = req.body;
@@ -72,5 +90,13 @@ export const eliminar = (req, res) => {
             return;
         }
         res.status(200).json({ message: 'Usuario eliminado exitosamente' });
+    });
+}
+
+export const getUsuariosClientes = (req, res) => {
+    const query = 'SELECT * FROM usuarios WHERE rol = "cliente"';
+    db.query(query, (err, results) => {
+        if (err) throw err;
+        res.json(results);
     });
 }

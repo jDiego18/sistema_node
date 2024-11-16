@@ -10,6 +10,27 @@ export const getAll = (req, res) => {
 
 export const getById = (req, res) => { }
 
+export const getByCodigo = (req, res) => {
+    const { codigo } = req.params;
+
+    const query = 'SELECT * FROM productos WHERE codigo_barras = ?';
+    const values = [codigo];
+
+    db.query(query, values, (err, results) => {
+        if (err) {
+            console.error('Error ejecutando la consulta:', err);
+            return res.status(500).json({ success: false, message: 'Error en el servidor' });
+        }
+
+        if (results.length > 0) {
+            res.status(200).json(results[0]);
+        } else {
+            res.status(404).json({ success: false, message: 'Producto no encontrado' });
+        }
+    }
+    );
+}
+
 export const create = (req, res) => {
     const { codigo_barras, nombre, cantidad, proveedor, fecha_caducidad, costo_compra, costo_venta, especificaciones } = req.body;
 
