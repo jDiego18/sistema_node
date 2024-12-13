@@ -1,6 +1,14 @@
 import { db } from "../db.js";
 import PDFDocument from 'pdfkit';
 
+export const getAll = (req, res) => {
+    const query = 'SELECT * FROM ventas';
+    db.query(query, (err, results) => {
+        if (err) throw err;
+        res.json(results);
+    });
+}
+
 export const getVentaId = (req, res) => {
     const query = 'SELECT MAX(ventas_id) AS maxId FROM ventas';
 
@@ -42,7 +50,7 @@ export const create = (req, res) => {
             return res.status(500).json({ success: false, message: 'Error en el servidor' });
         }
 
-        res.status(201).json({ success: true, message: 'Venta creada exitosamente', ventaId: results.insertId });
+        res.status(201).json({ success: true, message: 'Venta creada exitosamente', id: results.insertId });
     });
 }
 
@@ -89,13 +97,37 @@ export const registrarProductosVenta = (req, res) => {
         });
 }
 
-export const downloadTicket = (req, res) => {
+export const getProductosByVentaId = (req, res) => {
     const { ventas_id } = req.params;
 
-    const queryVenta = 'SELECT * FROM ventas WHERE ventas_id = ?';
-    const queryProductos = 'SELECT vp.*, p.nombre FROM ventas_productos vp JOIN productos p ON vp.productos_id = p.productos_id WHERE vp.ventas_id = ?';
+    const query = 'SELECT vp.*, p.nombre FROM ventas_productos vp JOIN productos p ON vp.productos_id = p.productos_id WHERE vp.ventas_id = ?';
 
-    db.query(queryVenta, [ventas_id], (err, ventaResults) => {
+    db.query(query, [ventas_id], (err, results) => {
+        if (err) {
+            console.error('Error ejecutando la consulta:', err);
+            return res.status(500).json({ success: false, message: 'Error en el servidor' });
+        }
+
+        res.status(200).json(results);
+    });
+}
+
+export const downloadTicket = (req, res) => {
+    const { id, opcion } = req.params;
+
+    let queryVenta, queryProductos;
+
+    if (opcion === 'Venta') {
+        queryVenta = 'SELECT * FROM ventas WHERE ventas_id = ?';
+        queryProductos = 'SELECT vp.*, p.nombre FROM ventas_productos vp JOIN productos p ON vp.productos_id = p.productos_id WHERE vp.ventas_id = ?';
+    } else if (opcion === 'Devolucion') {
+        queryVenta = 'SELECT d.*, v.cliente FROM devolucion d JOIN ventas v ON d.ventas_id = v.ventas_id WHERE devolucion_id = ?';
+        queryProductos = 'SELECT d.*, p.nombre, p.costo_compra FROM devolucion d JOIN productos p ON d.productos_id = p.productos_id WHERE d.devolucion_id = ?';
+    } else {
+        return res.status(400).json({ success: false, message: 'Opción inválida' });
+    }
+
+    db.query(queryVenta, [id], (err, ventaResults) => {
         if (err) {
             console.error('Error ejecutando la consulta de venta:', err);
             return res.status(500).json({ success: false, message: 'Error en el servidor' });
@@ -107,14 +139,16 @@ export const downloadTicket = (req, res) => {
 
         const venta = ventaResults[0];
 
-        db.query(queryProductos, [ventas_id], (err, productosResults) => {
+        db.query(queryProductos, [id], (err, productosResults) => {
             if (err) {
                 console.error('Error ejecutando la consulta de productos:', err);
                 return res.status(500).json({ success: false, message: 'Error en el servidor' });
             }
 
+            const producto = productosResults[0];
+
             const doc = new PDFDocument();
-            let filename = `ticket_${ventas_id}.pdf`;
+            let filename = `ticket_${id}.pdf`;
             filename = encodeURIComponent(filename);
             res.setHeader('Content-disposition', `attachment; filename="${filename}"`);
             res.setHeader('Content-type', 'application/pdf');
@@ -122,24 +156,44 @@ export const downloadTicket = (req, res) => {
             doc.fontSize(20).text('STORE LA ESCONDIDA', { align: 'center' });
 
             doc.moveDown();
-            doc.fontSize(14).text(`Fecha: ${venta.fecha_venta}`, { align: 'left' });
+            doc.fontSize(14).text(`Concepto: ${opcion}`, { align: 'left' });
+            doc.text(`Folio: ${id}`, { align: 'left' });
+            doc.text(`Fecha: ${venta.fecha_venta || venta.fecha_devolucion}`, { align: 'left' });
             doc.text(`Atendido por: ${venta.atendido_por}`, { align: 'left' });
             doc.text(`Cliente: ${venta.cliente}`, { align: 'left' });
 
             doc.moveDown();
-            doc.fontSize(16).text('Productos:', { align: 'left' });
 
-            productosResults.forEach(producto => {
-                doc.fontSize(12).text(`- ${producto.nombre}: ${producto.cantidad_venta} x ${producto.precio_unitario} = ${producto.total_unitario}`, { align: 'left' });
-            });
+            // Convertir valores de tipo BIT a números
+            venta.es_cambio = venta.es_cambio ? venta.es_cambio[0] : 0;
+            venta.es_devolucion = venta.es_devolucion ? venta.es_devolucion[0] : 0;
 
-            doc.moveDown();
-            doc.fontSize(14).text(`Forma de pago: ${venta.forma_pago}`, { align: 'left' });
-            doc.text(`Subtotal: ${venta.subtotal}`, { align: 'left' });
-            doc.text(`Total: ${venta.total}`, { align: 'left' });
-            doc.text(`Pago con: ${venta.pago_con}`, { align: 'left' });
-            doc.text(`Cambio: ${venta.cambio}`, { align: 'left' });
+            if (venta.es_cambio == 1) {
+                doc.fontSize(16).text('Producto:', { align: 'left' });
+                doc.fontSize(12).text(`- ${producto.nombre}: ${producto.cantidad_venta || producto.cantidad_devuelta} x 0 = 0`, { align: 'left' });
+                doc.moveDown();
+                doc.fontSize(14).text(`Forma de pago: N/A`, { align: 'left' });
+                doc.text(`Subtotal: 0`, { align: 'left' });
+                doc.text(`Total: 0`, { align: 'left' });
+                doc.text(`Pago con: 0`, { align: 'left' });
+                doc.text(`Cambio: ${producto.total_devuelto}`, { align: 'left' });
 
+                doc.moveDown();
+                doc.fontSize(10).text('*Se le ha cambiado el producto', { align: 'left' });
+            } else {
+                doc.fontSize(16).text('Productos:', { align: 'left' });
+                // Si es una venta o es devolucion recorrer el resultado del producto
+                productosResults.forEach(producto => {
+                    doc.fontSize(12).text(`- ${producto.nombre}: ${producto.cantidad_venta || producto.cantidad_devuelta} x ${producto.precio_unitario || producto.costo_compra} = ${producto.total_unitario || producto.total_devuelto}`, { align: 'left' });
+                });
+
+                doc.moveDown();
+                doc.fontSize(14).text(`Forma de pago: ${venta.forma_pago || 'N/A'}`, { align: 'left' });
+                doc.text(`Subtotal: ${venta.subtotal || '0'}`, { align: 'left' });
+                doc.text(`Total: ${venta.total || '0'}`, { align: 'left' });
+                doc.text(`Pago con: ${venta.pago_con || '0'}`, { align: 'left' });
+                doc.text(`Cambio: ${venta.cambio || producto.total_devuelto}`, { align: 'left' });
+            }
             doc.end();
             doc.pipe(res);
         });
