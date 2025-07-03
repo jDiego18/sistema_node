@@ -87,3 +87,18 @@ export const create = (req, res) => {
         });
     });
 }
+
+export const getProductosByDevolucionId = (req, res) => {
+    const { devolucion_id } = req.params;
+
+    const query = 'SELECT dp.*, p.nombre FROM devolucion_productos dp JOIN productos p ON dp.productos_id = p.productos_id WHERE dp.ventas_id = ?';
+
+    db.query(query, [devolucion_id], (err, results) => {
+        if (err) {
+            console.error('Error ejecutando la consulta:', err);
+            return res.status(500).json({ success: false, message: 'Error en el servidor' });
+        }
+
+        res.status(200).json(results);
+    });
+}
