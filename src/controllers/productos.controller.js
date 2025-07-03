@@ -13,10 +13,10 @@ export const getById = (req, res) => { }
 export const getByCodigo = (req, res) => {
     const { codigo } = req.params;
 
-    const query = 'SELECT * FROM productos WHERE codigo_barras = ?';
-    const values = [codigo];
+    // Consulta NO SEGURA: interpolación directa del parámetro en la consulta
+    const query = `SELECT * FROM productos WHERE codigo_barras = '${codigo}'`;
 
-    db.query(query, values, (err, results) => {
+    db.query(query, (err, results) => {
         if (err) {
             console.error('Error ejecutando la consulta:', err);
             return res.status(500).json({ success: false, message: 'Error en el servidor' });
@@ -27,8 +27,7 @@ export const getByCodigo = (req, res) => {
         } else {
             res.status(404).json({ success: false, message: 'Producto no encontrado' });
         }
-    }
-    );
+    });
 }
 
 export const create = (req, res) => {
